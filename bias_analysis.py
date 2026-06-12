@@ -323,12 +323,18 @@ def compute_bias(stock_id: str, start: str, end: str) -> dict:
             for v in combined[key]
         ]
 
-    # 也把收盤價序列附上（對齊日期軸）
+    # 收盤價與均線序列（對齊日期軸）
     close_aligned = close.reindex(combined.index)
     series_data["close"] = [
         round(float(v), 2) if pd.notna(v) else None
         for v in close_aligned
     ]
+    for n in MA_PERIODS:
+        ma_aligned = close.rolling(n).mean().reindex(combined.index)
+        series_data[f"MA{n}"] = [
+            round(float(v), 2) if pd.notna(v) else None
+            for v in ma_aligned
+        ]
 
     pullback_prob = compute_pullback_prob(close, bias_series)
     rebound_prob  = compute_rebound_prob(close, bias_series)
@@ -408,16 +414,12 @@ def _run_analysis(job_id: str, stock_id: str, start: str, end: str) -> None:
         _jobs[job_id]["progress"] = "抓取股價資料…"
         result = compute_bias(stock_id, start, end)
 
-        _jobs[job_id]["progress"] = "抓取加權指數資料…"
-        taiex = fetch_taiex_bias(start, end)
-
         _jobs[job_id] = {
             "status": "done",
             "data": {
                 "stock_id":   stock_id,
                 "stock_name": stock_name,
                 "period":     f"{start} ～ {end}",
-                "taiex":      taiex,
                 **result,
             },
         }
@@ -645,10 +647,10 @@ hr{{border:none;border-top:.5px solid #E5E5E2;margin:18px 0;}}
     <div class="chart-wrap" style="height:270px;"><canvas id="biasChart"></canvas></div>
   </div>
 
-  <!-- 加權指數 BIAS 圖 -->
+  <!-- 股價均線圖 -->
   <div class="chart-section">
     <div class="chart-header">
-      <span class="chart-title">台股加權指數乖離率（同期對照）</span>
+      <span class="chart-title">股價與均線</span>
       <div class="legend-row" id="taixLegend" style="margin-left:16px;"></div>
     </div>
     <div class="chart-wrap" style="height:220px;"><canvas id="histChart"></canvas></div>
@@ -1017,60 +1019,51 @@ function renderBiasChart(data) {{
 
 function renderTaixChart(data) {{
   if (histInst) {{ histInst.destroy(); histInst = null; }}
-  const taiex = data.taiex;
+  const s  = data.series;
   const TC = "rgba(0,0,0,0.4)", GC = "rgba(0,0,0,0.06)";
-  const KEYS   = ["BIAS20","BIAS60","BIAS120"];
-  const COLORS = {{"BIAS20":"#D85A30","BIAS60":"#7F77DD","BIAS120":"#1D9E75"}};
+  const MA_KEYS   = ["MA20","MA60","MA120"];
+  const MA_COLORS = {{"MA20":"#D85A30","MA60":"#7F77DD","MA120":"#1D9E75"}};
 
   // 更新圖例
   const legEl = document.getElementById('taixLegend');
   if (legEl) {{
-    legEl.innerHTML = KEYS.map(k =>
-      `<span><span class="dot" style="background:${{COLORS[k]}}"></span>${{k}}</span>`
-    ).join('') +
-    `<span><span class="dot" style="background:#1A1A18"></span>加權指數（右軸）</span>`;
+    legEl.innerHTML =
+      `<span><span class="dot" style="background:#1A1A18"></span>股價</span>` +
+      MA_KEYS.map(k =>
+        `<span><span class="dot" style="background:${{MA_COLORS[k]}}"></span>${{k}}</span>`
+      ).join('');
   }}
 
-  if (!taiex || !taiex.dates || !taiex.dates.length) {{
+  if (!s || !data.dates || !data.dates.length) {{
     const ctx = document.getElementById('histChart').getContext('2d');
-    ctx.font = "13px sans-serif";
-    ctx.fillStyle = "#AAA";
-    ctx.fillText("加權指數資料無法取得", 20, 60);
+    ctx.font = "13px sans-serif"; ctx.fillStyle = "#AAA";
+    ctx.fillText("股價資料無法取得", 20, 60);
     return;
   }}
 
-  const dates  = sliceTail(taiex.dates, displayDays);
+  const dates  = sliceTail(data.dates, displayDays);
   const nSlice = dates.length;
 
-  const datasets = KEYS.filter(k => taiex.series[k]).map(key => ({{
-    type: "line",
-    label: key,
-    data: (taiex.series[key] || []).slice(-nSlice),
-    borderColor: COLORS[key],
-    borderWidth: 1.8,
-    pointRadius: 0,
-    tension: 0.2,
-    yAxisID: "yL",
-  }}));
+  // 股價（右軸，粗線）
+  const datasets = [{{
+    type: "line", label: "股價",
+    data: (s["close"] || []).slice(-nSlice),
+    borderColor: "#1A1A18", borderWidth: 2,
+    pointRadius: 0, tension: 0.1,
+    yAxisID: "yR", order: -1,
+  }}];
 
-  // 零軸
-  datasets.push({{
-    type: "line", label: "_zero",
-    data: Array(nSlice).fill(0),
-    borderColor: "rgba(0,0,0,0.15)", borderWidth: 1,
-    borderDash: [5,4], pointRadius: 0, yAxisID: "yL",
-  }});
-
-  // 指數點位（右軸）
-  if (taiex.series["close"]) {{
+  // MA 線（右軸）
+  MA_KEYS.filter(k => s[k]).forEach(key => {{
     datasets.push({{
-      type: "line", label: "加權指數",
-      data: (taiex.series["close"] || []).slice(-nSlice),
-      borderColor: "#1A1A18", borderWidth: 2,
-      pointRadius: 0, tension: 0.1,
-      yAxisID: "yR", order: -1,
+      type: "line", label: key,
+      data: (s[key] || []).slice(-nSlice),
+      borderColor: MA_COLORS[key],
+      borderWidth: 1.5,
+      pointRadius: 0, tension: 0.2,
+      yAxisID: "yR",
     }});
-  }}
+  }});
 
   histInst = new Chart(document.getElementById('histChart'), {{
     data: {{ labels: dates, datasets }},
@@ -1081,15 +1074,12 @@ function renderTaixChart(data) {{
       plugins: {{
         legend: {{ display: false }},
         tooltip: {{
-          filter: item => item.dataset.label !== "_zero",
           callbacks: {{
             title: items => items[0].label,
             label: ctx => {{
               const v = ctx.parsed.y;
               if (v == null) return "";
-              if (ctx.dataset.label === "加權指數")
-                return ` 加權指數：${{v.toLocaleString()}} 點`;
-              return ` ${{ctx.dataset.label}}：${{v >= 0 ? "+" : ""}}${{v.toFixed(2)}}%`;
+              return ` ${{ctx.dataset.label}}：${{v.toLocaleString()}}`;
             }},
           }},
         }},
@@ -1099,17 +1089,10 @@ function renderTaixChart(data) {{
           ticks: {{ color: TC, font: {{ size: 10 }}, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }},
           grid: {{ color: GC }},
         }},
-        yL: {{
-          type: "linear", position: "left",
-          ticks: {{ color: TC, font: {{ size: 10 }}, callback: v => (v>=0?"+":"") + v.toFixed(1) + "%" }},
-          grid: {{ color: GC }},
-          title: {{ display: true, text: "乖離率 (%)", color: TC, font: {{ size: 10 }} }},
-        }},
         yR: {{
           type: "linear", position: "right",
-          ticks: {{ color: "#1A1A18", font: {{ size: 10, weight: "500" }}, callback: v => v.toLocaleString() }},
-          grid: {{ display: false }},
-          title: {{ display: true, text: "加權指數（點）", color: "#1A1A18", font: {{ size: 10, weight: "500" }} }},
+          ticks: {{ color: TC, font: {{ size: 10 }}, callback: v => v.toLocaleString() }},
+          grid: {{ color: GC }},
         }},
       }},
     }},
