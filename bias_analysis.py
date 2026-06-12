@@ -1131,8 +1131,9 @@ function renderCurrentProbCards(data) {{
 
   const KEYS    = ["BIAS20","BIAS60","BIAS120"];
   const COLORS  = {{"BIAS20":"#D85A30","BIAS60":"#7F77DD","BIAS120":"#1D9E75"}};
-  const FWDS    = ["5","10","20"];
-  const MOVES   = ["3","5","10"];
+  const FWDS      = ["5","10","20"];
+  const MOVES     = ["3","5","10"];
+  const DOWN_MOVES = ["10","5","3"];  // 由大到小排列
 
   // 表格 header cell
   const th = (txt, extra='') =>
@@ -1163,18 +1164,42 @@ function renderCurrentProbCards(data) {{
     const valStr   = (d.current_val >= 0 ? '+' : '') + d.current_val.toFixed(2) + '%';
     const pctColor = currentPctColor(d.current_pct);
 
+    // 建立 header 機率摘要（用 -5% 和 +5% 代表）
+    const hdrRows = FWDS.map(f => {{
+      const w = d.windows && d.windows[f];
+      if (!w) return `<tr><td style="padding:2px 5px;font-size:11px;font-weight:600;color:#555;">${{f}}日</td><td colspan="2" style="color:#CCC;font-size:10px;text-align:center;">—</td></tr>`;
+      const dp = w.down["5"], up = w.up["5"];
+      const dpBg = probBg(dp), dpFg = probFg(dp);
+      const upBg = reboundBg(up), upFg = reboundFg(up);
+      return `<tr>
+        <td style="padding:2px 5px;font-size:11px;font-weight:600;color:#555;white-space:nowrap;">${{f}}日</td>
+        <td style="padding:2px 5px;font-size:11px;font-weight:700;text-align:center;background:${{dpBg}};color:${{dpFg}};border-radius:3px;">${{dp !== null ? dp.toFixed(0)+'%' : '—'}}</td>
+        <td style="padding:2px 5px;font-size:11px;font-weight:700;text-align:center;background:${{upBg}};color:${{upFg}};border-radius:3px;">${{up !== null ? up.toFixed(0)+'%' : '—'}}</td>
+      </tr>`;
+    }}).join('');
+
     html += `
     <div style="flex:1;min-width:280px;background:#fff;border:1px solid #E8E8E4;
                 border-radius:10px;padding:14px 16px;border-top:3px solid ${{color}};">
       <!-- 標題列 -->
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">
-        <span style="font-size:13px;font-weight:700;color:${{color}};">${{key}}</span>
-        <div style="text-align:right;">
-          <div style="font-size:18px;font-weight:700;color:${{pctColor}};line-height:1.1;">${{valStr}}</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:10px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:${{color}};margin-bottom:4px;">${{key}}</div>
+          <div style="font-size:15px;font-weight:700;color:${{pctColor}};line-height:1.1;">${{valStr}}</div>
           <div style="font-size:10px;background:${{pctColor}}18;color:${{pctColor}};
-                      padding:2px 7px;border-radius:4px;font-weight:600;margin-top:2px;">
+                      padding:2px 7px;border-radius:4px;font-weight:600;margin-top:3px;display:inline-block;">
             歷史 ${{d.current_pct.toFixed(0)}}% 分位
           </div>
+        </div>
+        <div style="flex-shrink:0;">
+          <table style="border-collapse:separate;border-spacing:3px 2px;">
+            <thead><tr>
+              <th style="font-size:9px;color:#AAA;font-weight:400;text-align:center;padding:0 4px;"></th>
+              <th style="font-size:9px;color:#C0392B;font-weight:600;text-align:center;padding:0 4px;">↓-5%</th>
+              <th style="font-size:9px;color:#27AE60;font-weight:600;text-align:center;padding:0 4px;">↑+5%</th>
+            </tr></thead>
+            <tbody>${{hdrRows}}</tbody>
+          </table>
         </div>
       </div>
       <div style="font-size:10px;color:#AAA;margin-bottom:8px;padding-bottom:7px;border-bottom:1px solid #F0F0EC;">
@@ -1185,7 +1210,7 @@ function renderCurrentProbCards(data) {{
         <thead><tr>
           ${{th('觀察','text-align:left;')}}
           ${{th('n')}}
-          ${{MOVES.map(m => th(`-${{m}}%`,'color:#C0392B;')).join('')}}
+          ${{DOWN_MOVES.map(m => th(`-${{m}}%`,'color:#C0392B;')).join('')}}
           ${{MOVES.map(m => th(`+${{m}}%`,'color:#27AE60;')).join('')}}
         </tr></thead>
         <tbody>
@@ -1195,7 +1220,7 @@ function renderCurrentProbCards(data) {{
           return `<tr>
             ${{td_row(f+'日')}}
             <td style="padding:5px 4px;text-align:center;border:1px solid #E8E8E4;font-size:10px;color:#999;">${{w.n}}</td>
-            ${{MOVES.map(m => td_prob(w.down[m], 'down')).join('')}}
+            ${{DOWN_MOVES.map(m => td_prob(w.down[m], 'down')).join('')}}
             ${{MOVES.map(m => td_prob(w.up[m],   'up')).join('')}}
           </tr>`;
         }}).join('')}}
