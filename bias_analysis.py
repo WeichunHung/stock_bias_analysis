@@ -1245,11 +1245,7 @@ function renderCurrentProbCards(data) {{
     </div>`;
   }}
 
-  html += `</div>
-  <div style="font-size:10px;color:#AAA;margin-top:8px;line-height:1.8;">
-    🟥/🟧 機率高&nbsp;&nbsp;🟩 機率低&nbsp;&nbsp;
-    樣本：BIAS 百分位落在目前 ±8pp 內的歷史交易日
-  </div>`;
+  html += `</div>`;
 
   el.innerHTML = html;
 }}
@@ -1320,15 +1316,7 @@ function _buildProbTable(sectionId, probData, direction) {{
     html += `</tbody></table></div>`;
   }}
 
-  const legend = '🟥 ≥70%&nbsp;&nbsp;🟧 50–70%&nbsp;&nbsp;🟨 30–50%&nbsp;&nbsp;🟩 &lt;30%';
-  const note = isDown
-    ? 'BIAS 首次上穿閾值（每段高位只計首日）'
-    : 'BIAS 首次下穿閾值（每段低位只計首日）';
-
-  html += `</div>
-    <div style="font-size:10px;color:#AAA;margin-top:8px;line-height:1.8;">
-      ${{legend}}<br>${{note}}
-    </div>`;
+  html += `</div>`;
 
   el.innerHTML = html;
 }}
