@@ -587,6 +587,7 @@ hr{{border:none;border-top:.5px solid #E5E5E2;margin:18px 0;}}
 <body>
 
 <div class="search-bar">
+  <div style="width:100%;font-size:16px;font-weight:700;color:#333;margin-bottom:10px;letter-spacing:.04em;">個股熱度分析</div>
   <label>股票代碼</label>
   <input id="stockInput" type="text" placeholder="如 2330" maxlength="6" autocomplete="off">
   <label>起始日</label>
@@ -1164,25 +1165,32 @@ function renderCurrentProbCards(data) {{
     const valStr   = (d.current_val >= 0 ? '+' : '') + d.current_val.toFixed(2) + '%';
     const pctColor = currentPctColor(d.current_pct);
 
-    // 建立 header 機率摘要（用 -5% 和 +5% 代表）
-    const hdrRows = FWDS.map(f => {{
+    // 計算多空分數：各窗口 (上漲3/5/10% 平均) - (下跌3/5/10% 平均)，再取 5/10/20日 平均
+    let scoreSum = 0, scoreCnt = 0;
+    FWDS.forEach(f => {{
       const w = d.windows && d.windows[f];
-      if (!w) return `<tr><td style="padding:2px 5px;font-size:11px;font-weight:600;color:#555;">${{f}}日</td><td colspan="2" style="color:#CCC;font-size:10px;text-align:center;">—</td></tr>`;
-      const dp = w.down["5"], up = w.up["5"];
-      const dpBg = probBg(dp), dpFg = probFg(dp);
-      const upBg = reboundBg(up), upFg = reboundFg(up);
-      return `<tr>
-        <td style="padding:2px 5px;font-size:11px;font-weight:600;color:#555;white-space:nowrap;">${{f}}日</td>
-        <td style="padding:2px 5px;font-size:11px;font-weight:700;text-align:center;background:${{dpBg}};color:${{dpFg}};border-radius:3px;">${{dp !== null ? dp.toFixed(0)+'%' : '—'}}</td>
-        <td style="padding:2px 5px;font-size:11px;font-weight:700;text-align:center;background:${{upBg}};color:${{upFg}};border-radius:3px;">${{up !== null ? up.toFixed(0)+'%' : '—'}}</td>
-      </tr>`;
-    }}).join('');
+      if (!w) return;
+      const upAvg  = (["3","5","10"].map(m => w.up[m]  ?? 0).reduce((a,b)=>a+b,0)) / 3;
+      const downAvg= (["3","5","10"].map(m => w.down[m] ?? 0).reduce((a,b)=>a+b,0)) / 3;
+      scoreSum += (upAvg - downAvg); scoreCnt++;
+    }});
+    const netScore = scoreCnt > 0 ? scoreSum / scoreCnt : null;
+    let signal, sigColor, sigBg, sigIcon;
+    if (netScore === null)      {{ signal='資料不足'; sigColor='#AAA';    sigBg='#F5F5F2'; sigIcon='–'; }}
+    else if (netScore >  25)   {{ signal='強烈偏多'; sigColor='#C0392B'; sigBg='#FDECEA'; sigIcon='▲▲'; }}
+    else if (netScore >   8)   {{ signal='偏多';     sigColor='#E24B4A'; sigBg='#FEF5F5'; sigIcon='▲'; }}
+    else if (netScore < -25)   {{ signal='強烈偏空'; sigColor='#1E8449'; sigBg='#EAF5EA'; sigIcon='▼▼'; }}
+    else if (netScore <  -8)   {{ signal='偏空';     sigColor='#27AE60'; sigBg='#F0FAF0'; sigIcon='▼'; }}
+    else                       {{ signal='中性';     sigColor='#888';    sigBg='#F5F5F2'; sigIcon='◆'; }}
+    // 儀表條：將 netScore 從 [-50,+50] 映射到 [0%,100%]
+    const meterPct = netScore !== null ? Math.min(96, Math.max(4, (netScore + 50))) : 50;
+    const meterColor = netScore > 0 ? '#C0392B' : netScore < 0 ? '#27AE60' : '#BBB';
 
     html += `
     <div style="flex:1;min-width:280px;background:#fff;border:1px solid #E8E8E4;
                 border-radius:10px;padding:14px 16px;border-top:3px solid ${{color}};">
       <!-- 標題列 -->
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:10px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;gap:10px;">
         <div>
           <div style="font-size:13px;font-weight:700;color:${{color}};margin-bottom:4px;">${{key}}</div>
           <div style="font-size:15px;font-weight:700;color:${{pctColor}};line-height:1.1;">${{valStr}}</div>
@@ -1191,15 +1199,23 @@ function renderCurrentProbCards(data) {{
             歷史 ${{d.current_pct.toFixed(0)}}% 分位
           </div>
         </div>
-        <div style="flex-shrink:0;">
-          <table style="border-collapse:separate;border-spacing:3px 2px;">
-            <thead><tr>
-              <th style="font-size:9px;color:#AAA;font-weight:400;text-align:center;padding:0 4px;"></th>
-              <th style="font-size:9px;color:#C0392B;font-weight:600;text-align:center;padding:0 4px;">↓-5%</th>
-              <th style="font-size:9px;color:#27AE60;font-weight:600;text-align:center;padding:0 4px;">↑+5%</th>
-            </tr></thead>
-            <tbody>${{hdrRows}}</tbody>
-          </table>
+        <!-- 多空概況 -->
+        <div style="flex-shrink:0;text-align:center;min-width:80px;">
+          <div style="font-size:18px;font-weight:800;color:${{sigColor}};
+                      background:${{sigBg}};border-radius:8px;padding:6px 10px;
+                      border:1.5px solid ${{sigColor}}30;line-height:1.2;">
+            ${{sigIcon}}<br>
+            <span style="font-size:11px;">${{signal}}</span>
+          </div>
+          <div style="margin-top:6px;position:relative;height:10px;">
+            <div style="position:absolute;top:4px;left:0;right:0;height:2px;background:#EEE;border-radius:2px;"></div>
+            <div style="position:absolute;top:0;left:${{meterPct}}%;transform:translateX(-50%);
+                        width:10px;height:10px;border-radius:50%;
+                        background:${{meterColor}};border:2px solid #fff;box-shadow:0 0 0 1.5px ${{meterColor}};"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:8px;color:#CCC;margin-top:3px;">
+            <span>偏空</span><span>偏多</span>
+          </div>
         </div>
       </div>
       <div style="font-size:10px;color:#AAA;margin-bottom:8px;padding-bottom:7px;border-bottom:1px solid #F0F0EC;">
@@ -1231,7 +1247,7 @@ function renderCurrentProbCards(data) {{
 
   html += `</div>
   <div style="font-size:10px;color:#AAA;margin-top:8px;line-height:1.8;">
-    🟥/🟧 回檔機率高&nbsp;&nbsp;🟩/🟨 反彈機率高&nbsp;&nbsp;
+    🟥/🟧 機率高&nbsp;&nbsp;🟩 機率低&nbsp;&nbsp;
     樣本：BIAS 百分位落在目前 ±8pp 內的歷史交易日
   </div>`;
 
@@ -1304,9 +1320,7 @@ function _buildProbTable(sectionId, probData, direction) {{
     html += `</tbody></table></div>`;
   }}
 
-  const legend = isDown
-    ? '🟥 ≥70%&nbsp;&nbsp;🟧 50–70%&nbsp;&nbsp;🟨 30–50%&nbsp;&nbsp;🟩 &lt;30%'
-    : '🟩 ≥70%&nbsp;&nbsp;🟨 50–70%&nbsp;&nbsp;🟧 30–50%&nbsp;&nbsp;🟥 &lt;30%';
+  const legend = '🟥 ≥70%&nbsp;&nbsp;🟧 50–70%&nbsp;&nbsp;🟨 30–50%&nbsp;&nbsp;🟩 &lt;30%';
   const note = isDown
     ? 'BIAS 首次上穿閾值（每段高位只計首日）'
     : 'BIAS 首次下穿閾值（每段低位只計首日）';
@@ -1319,20 +1333,20 @@ function _buildProbTable(sectionId, probData, direction) {{
   el.innerHTML = html;
 }}
 
-// 回漲顏色（綠＝好訊號）
+// 回漲顏色（紅＝高機率偏多，台股慣例）
 function reboundBg(p) {{
   if (p === null) return "#F5F5F2";
-  if (p >= 70)   return "#EAF5EA";
-  if (p >= 50)   return "#F0FAF0";
+  if (p >= 70)   return "#FDECEA";
+  if (p >= 50)   return "#FEF3E2";
   if (p >= 30)   return "#FEFCE2";
-  return "#F5F5F2";
+  return "#EAF5EA";
 }}
 function reboundFg(p) {{
   if (p === null) return "#BBB";
-  if (p >= 70)   return "#1E8449";
-  if (p >= 50)   return "#239B56";
+  if (p >= 70)   return "#C0392B";
+  if (p >= 50)   return "#CA6F1E";
   if (p >= 30)   return "#9A7D0A";
-  return "#888";
+  return "#1E8449";
 }}
 
 function renderPullbackTable(data) {{
