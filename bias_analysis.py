@@ -805,8 +805,8 @@ function renderCards(data) {{
     const pct  = s["百分位"];
     const p10  = s["P10"], p25 = s["P25"], p75 = s["P75"], p90 = s["P90"];
     const color = biasColor(val, p10, p25, p75, p90);
-    const label = pct >= 90 ? '超強正乖離' : pct >= 75 ? '偏正乖離' :
-                  pct <= 10 ? '超強負乖離' : pct <= 25 ? '偏負乖離' : '中性';
+    const label = pct >= 90 ? '極度過熱' : pct >= 75 ? '貪婪' :
+                  pct <= 10 ? '極度恐慌' : pct <= 25 ? '超賣' : '中性';
     const c = document.createElement('div');
     c.className = 'card' + (key === selMA ? ' active' : '');
     c.onclick = () => {{ selMA = key; selectCard(key, data); }};
