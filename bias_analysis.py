@@ -127,7 +127,7 @@ def _signal_prob(close: pd.Series,
                     continue
                 ref     = close_arr[loc]
                 f_close = close_arr[loc + 1 : loc + 1 + fwd]
-                if ref <= 0 or len(f_close) == 0:
+                if ref <= 0 or len(f_close) < fwd:
                     continue
                 valid_n += 1
                 if direction == "down":
