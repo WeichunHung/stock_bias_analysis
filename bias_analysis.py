@@ -597,11 +597,11 @@ hr{{border:none;border-top:.5px solid #E5E5E2;margin:18px 0;}}
   <button id="analyzeBtn" onclick="startAnalysis()">分析</button>
   <div class="quick-btns">
     <button class="qbtn" onclick="setStock('2330')">台積電</button>
-    <button class="qbtn" onclick="setStock('2317')">鴻海</button>
-    <button class="qbtn" onclick="setStock('2454')">聯發科</button>
+    <button class="qbtn" onclick="setStock('2383')">台光電</button>
+    <button class="qbtn" onclick="setStock('2327')">國巨</button>
     <button class="qbtn" onclick="setStock('2308')">台達電</button>
     <button class="qbtn" onclick="setStock('2382')">廣達</button>
-    <button class="qbtn" onclick="setStock('006208')">富邦台50</button>
+    <button class="qbtn" onclick="setStock('2303')">聯電</button>
   </div>
 </div>
 
